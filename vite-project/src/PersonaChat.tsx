@@ -1,30 +1,41 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { getPersonaReply } from "./util/gemini";
-
+import TypingIndicator from "./components/ui/typing";
+import { personas } from "./util/data";
 type PersonaName = "Hitesh" | "Piyush";
 
 interface Message {
   sender: "user" | "bot";
   text: string;
+  timestamp: string
 }
 
-const personas : {
-  name: PersonaName;
-  avatar: string;
-  intro: string;
-}[]= [
-  { name: "Hitesh", avatar: "/hitesh.jpg", intro: "Start a conversation with Hitesh Choudhary" },
-  { name: "Piyush", avatar: "/piyush.jpg", intro: "Start a conversation with Piyush Garg" }
-];
+// const personas: {
+//   name: PersonaName;
+//   avatar: string;
+//   intro: string;
+// }[] = [
+//   { name: "Hitesh", avatar: "/hitesh.jpg", intro: "Start a conversation with Hitesh Choudhary" },
+//   { name: "Piyush", avatar: "/piyush.jpg", intro: "Start a conversation with Piyush Garg" }
+// ];
 
 export default function PersonaChat() {
   const [activePersona, setActivePersona] = useState(0);
   const [chats, setChats] = useState<{ [key: number]: Message[] }>({ 0: [], 1: [] });
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  
+
+  //  Invisible marker to scroll into view
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  //  Auto-scroll to bottom when chats change
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chats, activePersona]);
 
   const sendMessage = async () => {
     if (!input.trim()) return;
@@ -32,19 +43,19 @@ export default function PersonaChat() {
     const updatedChats = { ...chats };
     updatedChats[activePersona] = [
       ...updatedChats[activePersona],
-      { sender: "user", text: input }
+      { sender: "user", text: input, timestamp: new Date().toISOString()}
     ];
     setChats(updatedChats);
     setInput("");
     setLoading(true);
 
     try {
-      const reply = await getPersonaReply(personas[activePersona].name, updatedChats[activePersona]);
+      const reply = await getPersonaReply(activePersona, personas[activePersona].id, updatedChats[activePersona]);
       updatedChats[activePersona] = [
         ...updatedChats[activePersona],
-        { sender: "bot", text: reply }
+        { sender: "bot", text: reply, timestamp: new Date().toISOString()}
       ];
-      setChats(updatedChats);
+      setChats({ ...updatedChats });
     } catch (err) {
       console.error(err);
     } finally {
@@ -52,16 +63,14 @@ export default function PersonaChat() {
     }
   };
 
-  // ⬇️ Option 1: Quick question suggestions for user
   const quickOptions = [
     "Tell me about yourself",
-    "What’s your top tip for beginners?",
+    "What's your top tip for beginners?",
     "Explain a concept in simple words",
     "Share something interesting"
   ];
 
   const handleQuickOptionClick = (text: string) => {
-    setInput(text);
     sendMessageWithPreset(text);
   };
 
@@ -71,18 +80,18 @@ export default function PersonaChat() {
     const updatedChats = { ...chats };
     updatedChats[activePersona] = [
       ...updatedChats[activePersona],
-      { sender: "user", text: preset }
+      { sender: "user", text: preset, timestamp: new Date().toISOString()}
     ];
     setChats(updatedChats);
     setLoading(true);
 
     try {
-      const reply = await getPersonaReply(personas[activePersona].name, updatedChats[activePersona]);
+      const reply = await getPersonaReply(activePersona, personas[activePersona].id, updatedChats[activePersona]);
       updatedChats[activePersona] = [
         ...updatedChats[activePersona],
-        { sender: "bot", text: reply }
+        { sender: "bot", text: reply, timestamp: new Date().toISOString()}
       ];
-      setChats(updatedChats);
+      setChats({ ...updatedChats });
     } catch (err) {
       console.error(err);
     } finally {
@@ -120,13 +129,12 @@ export default function PersonaChat() {
 
       {/* Chat Area */}
       <div className="w-full max-w-3xl flex flex-col flex-1 mt-4 rounded-2xl bg-gray-800 shadow-lg overflow-hidden">
-        <ScrollArea className="flex-1 p-4">
+        <ScrollArea className="p-4 h-[calc(100vh-250px)]">
           {chats[activePersona].length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center text-gray-400">
               <img src={personas[activePersona].avatar} className="w-20 h-20 rounded-full mb-4 border-2 border-gray-600" />
               <p className="font-medium text-white">{personas[activePersona].intro}</p>
               <span className="text-sm">Ask anything you'd like to know!</span>
-              {/* ⬇️ Option 1 buttons */}
               <div className="mt-4 flex flex-wrap gap-2 justify-center">
                 {quickOptions.map((opt, idx) => (
                   <Button
@@ -140,30 +148,62 @@ export default function PersonaChat() {
               </div>
             </div>
           ) : (
-            chats[activePersona].map((msg, idx) => (
-              <div
-                key={idx}
-                className={`flex items-start gap-2 my-3 ${
-                  msg.sender === "user" ? "justify-end" : "justify-start"
-                }`}
-              >
-                {msg.sender === "bot" && (
-                  <img src={personas[activePersona].avatar} className="w-8 h-8 rounded-full border border-gray-600" />
-                )}
+            <>
+              {chats[activePersona].map((msg, idx) => (
                 <div
-                  className={`p-3 rounded-lg max-w-xs ${
-                    msg.sender === "user" ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-200"
+                  key={idx}
+                  className={`flex items-start gap-2 my-3 ${
+                    msg.sender === "user" ? "justify-end" : "justify-start"
                   }`}
                 >
-                  {msg.text}
-                </div>
-                {msg.sender === "user" && (
-                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-500 text-white font-bold">
-                    U
+                  {msg.sender === "bot" && (
+                    <img src={personas[activePersona].avatar} className="w-8 h-8 rounded-full border border-gray-600" />
+                  )}
+                  <div
+                    className={`p-3 rounded-lg max-w-xs ${
+                      msg.sender === "user" ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-200"
+                    }`}
+                  >
+                     <div>{msg.text}</div>
+                      <div className={`text-xs mt-1 ${
+                        msg.sender === "user" ? "text-right text-gray-200" : "text-right text-gray-400"
+                      }`}>
+                        {new Date(msg.timestamp).toLocaleString([], {
+                          year: 'numeric',
+                          month: 'short',
+                          day: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                        </div>
+
                   </div>
-                )}
-              </div>
-            ))
+                  {msg.sender === "user" && (
+                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-500 text-white font-bold">
+                      U
+                    </div>
+                  )}
+
+                </div>
+              ))}
+
+             {/* Typing indicator for bot */}
+              {loading && (
+                <div className="flex items-start gap-2 my-3 justify-start px-4">
+                  <img
+                    src={personas[activePersona].avatar}
+                    className="w-8 h-8 rounded-full border border-gray-600"
+                  />
+                  <div className="flex items-center gap-1 px-3 py-2 rounded-2xl border border-gray-700 bg-gray-800/50 shadow-sm">
+                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:0ms]"></span>
+                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:200ms]"></span>
+                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:400ms]"></span>
+                  </div>
+                </div>
+              )}             
+              {/*  Invisible marker for scroll */}
+              <div ref={bottomRef} />
+            </>
           )}
         </ScrollArea>
 
