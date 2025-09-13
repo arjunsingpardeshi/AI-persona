@@ -3,9 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { getPersonaReply } from "./util/gemini";
-import TypingIndicator from "./components/ui/typing";
 import { personas } from "./util/data";
-type PersonaName = "Hitesh" | "Piyush";
+//type PersonaName = "Hitesh" | "Piyush";
 
 interface Message {
   sender: "user" | "bot";
