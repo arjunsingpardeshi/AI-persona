@@ -17,10 +17,8 @@ export async function getPersonaReply(
   activePersona: number,
   persona: string,
   messages: { sender: string; text: string }[]
-) {console.log("inside getPersonaReplay function persoana = ", persona)
-
+) {
   const chatHistory = messages.map(m => `${m.sender}: ${m.text}`).join("\n");
-  
   const prompt = `
                   You are ${personas[activePersona].name}, ${personas[activePersona].bio},
                   ${personas[activePersona].title}
